@@ -84,3 +84,24 @@ def ratio_missing(df, plot=False):
         plt.xlim((0, 1))
     
     return ratio_missing_rows, ratio_missing_cols
+
+
+def remove_above_percent(df, missing_ratios, percent, axis=1):
+    '''Removes the row or column from the dataframe where the missing data ratio 
+    is greater then a specified threshold
+    
+    ARGS
+    ----
+    df: (Pandas DataFrame) Dataframe to be cleaned
+    missing_ratios: (List[float]) List of ratio for missing data
+    percent: (float) Missing data threshold. Data below the threshold will be kept
+    axis: (integer) 0 for rows and 1 for columns
+    
+    RETURNS
+    -------
+    cleaned_df: (Pandas DataFrame) Cleaned dataframe
+    '''
+    
+    cleaned_df = df.drop(list(missing_ratios[missing_ratios > percent].index), axis=axis)
+    
+    return cleaned_df

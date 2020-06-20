@@ -2,10 +2,11 @@ import pandas as pd
 import numpy as np
 import progressbar
 
+import matplotlib.pyplot as plt
 
 def decode_missing_values(df, unknown_mapping):
-    '''Replaces the values encoded as unkown in df as np.nan. The encoding for values are 
-    given in unknown_mapping.
+    '''Replaces the values encoded as unkown in df as np.nan. The encoding for unkown values are 
+    given in unknown_mapping
 
     ARGS
     ----
@@ -37,3 +38,49 @@ def decode_missing_values(df, unknown_mapping):
     bar.finish()
     
     return df_clean
+
+
+def ratio_missing(df, plot=False):
+    '''Calculate the ratio of missing values in each row and column. Returns the ratios with a descending order
+    
+    ARGS
+    ----
+    df: (Pandas DataFrame) DataFrame of interest to perform missing value analysis on
+    plot: (bool) It true the results are plotted as a histogram
+    
+    RETURNS
+    -------
+    ratio_missing_rows: (pandas Serie) Series of sorted missing value ratios per each row
+    ratio_missing_cols: (pandas Serie) Series of sorted missing value ratios per each column
+    '''
+    
+    n_rows = df.shape[0]
+    n_cols = df.shape[1]
+    
+    n_missing_cols = df.isnull().sum(axis=0) #number of missing values per columns
+    ratio_missing_cols = n_missing_cols/n_rows #number of missing values per column divided by number of rows
+    
+    n_missing_rows = df.isnull().sum(axis=1) #number of missing values per row
+    ratio_missing_rows = n_missing_rows/n_cols #number of missing values per row divided by number of columns
+    
+    ratio_missing_cols = ratio_missing_cols.sort_values(ascending=False)
+    ratio_missing_rows = ratio_missing_rows.sort_values(ascending=False)
+    
+    if plot:
+        plt.figure(figsize=(14,10))
+        plt.subplot(2,1,1)
+        bins = np.arange(0, 1, step=0.02)
+        ratio_missing_cols.hist(bins=bins)
+        plt.xlabel('Ratio of Missing Values')
+        plt.ylabel('Number of Features')
+        plt.title('Ratio of Missing Value per Feature')
+        plt.xlim((0, 1))
+        
+        plt.subplot(2,1,2)
+        ratio_missing_rows.hist(bins=bins)
+        plt.xlabel('Ratio of Missing Values')
+        plt.ylabel('Number of Rows')
+        plt.title('Ratio of Missing Value per Row')
+        plt.xlim((0, 1))
+    
+    return ratio_missing_rows, ratio_missing_cols

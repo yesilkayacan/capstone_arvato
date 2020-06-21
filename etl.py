@@ -1,15 +1,27 @@
 import pandas as pd
 
 
-def transfrom_attribute_map(attr_mapping_df, top_level_attr_df):
+def transfrom_attribute_map(attr_mapping_df):
+    '''Cleans the attr_mapping_df by filling the missing values. Also creates a dataframe of the 
+    'Attribute'-'Meaning' couples where the 'Meaning' is 'unknown'
+    
+    ARGS
+    ----
+    attr_mapping_df: (pandas.DataFrame) Dataframe that has a Attribute and Meaning column
+
+    RETURNS
+    -------
+    attr_mapping_clean: (pandas.DataFrame) Copy of attr_mapping_df where the nan values are filled with
+        a forward fill and 'Meaning' matching 'unknown' rows have been removed
+    unknown_mapping: (pandas.DataFrame) Dataframe of the 'Attribute'-'Meaning' couples where the 'Meaning'
+        is 'unknown'
+    '''
     
     attr_mapping_clean = attr_mapping_df.copy()
     attr_mapping_clean.fillna(method='ffill', inplace=True)
 
     unknown_mapping = attr_mapping_clean[attr_mapping_clean['Meaning']=='unknown'].set_index('Attribute')['Value']
     attr_mapping_clean.drop(attr_mapping_clean[attr_mapping_clean['Meaning']=='unknown'].index, axis=0, inplace=True)
-
-    
 
     return attr_mapping_clean, unknown_mapping
 
@@ -26,7 +38,7 @@ def get_all_attributes(attr_mapping_df, top_level_attr_df):
     -------
     all_attributes: (set) Set of unique values combined from the 'Attribute' columns of the input dataframes
     '''
-    
+
     all_attributes = set(attr_mapping_df[attr_mapping_df['Attribute'].notnull()]['Attribute'].unique()).union(set(top_level_attr_df['Attribute'].unique()))
 
     return all_attributes

@@ -1,4 +1,6 @@
 import pandas as pd
+import numpy as np
+
 from etl import transfrom_attribute_map
 
 def preprocess_data(df, attr_mapping, train=True, scaler=None, pca=None):
@@ -47,27 +49,38 @@ def get_subset(data, subset_size, sample_ind=None):
     
     ARGS
     ----
-    data: (pandas.DataFrame or np.Array) Data to get the random subset from
+    data: (np.Array) Data to get the random subset from
     subset_size: (int) Size of the output subset
     sample_ind: (list) Can return the items stored in the indices of the sample_ind list
 
     RETURNS
     -------
-    subset: (pandas.DataFrame or np.Array) Random subset taken from the data with the provided options
+    subset: (np.Array) Random subset taken from the data with the provided options
     sample_ind: (list) Indices of the subset items in the Data
     '''
 
     assert type(subset_size)==int, 'subset_size must be of type int'
-    assert subset_size<=data.shape[0], 'subset_size must be less then or equal to the row count of data)
+    assert subset_size<=data.shape[0], 'subset_size must be less then or equal to the row count of data'
 
-    if sample_ind=None:
+    if sample_ind==None:
         sample_ind = np.random.choice(data.shape[0], size=subset_size, replace=False)
 
-    subset = azdias_scaled[data]
+    subset = data[sample_ind]
 
     return subset, sample_ind
 
 
 
-def dimentionality_reduction_PCA(x, train=True, subset=60000):
-    pass
+def dimentionality_reduction_PCA(x, train=True, pca=None, use_subset=True, subset=5000):
+
+    if use_subset:
+        x, sample_ind = get_subset(x, subset, sample_ind=None)
+    
+    if train:
+        pca = PCA(750)
+        print('Fitting PCA')
+        x_reduced = pca.fit_transform(x)
+    else:
+        x_reduced = pca.transform(x)
+
+    return x_reduced, pca

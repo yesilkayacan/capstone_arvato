@@ -104,3 +104,39 @@ def transform_azdias(azdias_df, attr_mapping_df, top_level_attr_df, missing_cols
     print('observations: %.2f' % (azdias_df_filtered.shape[0]/azdias_df.shape[0]*100))
     
     return azdias_df_filtered
+
+
+def etl_transform(df, attributes_list, attr_mapping_df):
+    '''Transform any data set taking into reference the attributes from the already transformed azdias dataset.
+    The dataframe needs to have 'LNR' as one of the columns.
+    Filter the data to have all the attributes listed in attributes_list.
+    LNR will be set as index.
+    Rows having incorrect data as 'X' values in featrue 'CAMEO_DEUG_2015' will be removed.
+    Decodes all the missing value encodings in the data as np.nan.
+    Finally remove all the rows that are left with a missing value.
+    Returns the cleaned dataframe.
+
+    ARGS
+    ----
+    df: (pandas.DataFrame) Udacity_AZDIAS dataframe to be cleaned
+    attributes_list: (list) List of features in the reference data set (already transformed azdias dataset)
+
+    RETURNS
+    -------
+    df_clean: (pandas.DataFrame) Cleaned copy of df dataframe
+    '''
+    
+    print('Filtering features according to provided attribute list...')
+    df_clean = df[['LNR', *attributes_list]].copy()
+    _, unknown_mapping = transfrom_attribute_map(attr_mapping_df)
+
+    df_clean.set_index('LNR', inplace=True)
+    df_clean['CAMEO_DEUG_2015'] = np.where(df_clean['CAMEO_DEUG_2015']=='X', np.NaN, df_clean['CAMEO_DEUG_2015'])
+    
+    print('Decoding and converting missing values to NaN...')
+    df_clean = decode_missing_values(df_clean, unknown_mapping)
+    
+    print('Dropping rows with NaN values...')
+    df_clean.dropna(axis=0, inplace=True)
+    
+    return df_clean

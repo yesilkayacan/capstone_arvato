@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import pickle
+
 from utils import decode_missing_values
 from utils import remove_above_percent
 from utils import ratio_missing
@@ -140,3 +142,22 @@ def etl_transform(df, attributes_list, attr_mapping_df):
     df_clean.dropna(axis=0, inplace=True)
     
     return df_clean
+
+
+def etl_save_data(obj_list, filenames_list):
+    '''Generic save fucntion. All the files in the obj_list are saved as pickle as
+    the the corresponding filenames_list items.
+
+    Length of the obj_list must be the same as length of the filename_list.
+
+    ARGS
+    ----
+    obj_list: (list) List of items to be saved
+    filenames_list: (list) List of filenames that the corresponding items will be saved as
+    '''
+    
+    assert len(obj_list)==len(filenames_list), 'Number of files to save and the names assigned do not match'
+    
+    for obj, file_name in zip(obj_list,filenames_list):
+        with open(file_name + '.pkl','wb') as f:
+            pickle.dump(obj, f, protocol=4)

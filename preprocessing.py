@@ -21,7 +21,7 @@ def preprocess_data(df, attr_mapping_df, train=True, scaler=None, pca=None):
     ----
     df: (pandas.DataFrame) Cleaned dataframe to be preprocessed
     attr_mapping_df: (pandas.DataFrame) Dataframe that has a Attribute and Meaning column
-    train: (boolean) Training swith when true, scaler and pca will be trained. Otherwise these input objects will
+    train: (boolean) Training switch when true, scaler and pca will be trained. Otherwise these input objects will
         be applied to the data
     scaler: (sklearn.preprocessing.StandardScaler) Scaler object to apply to the data. Required when train=False
     pca: (sklearn.decomposition.PCA) PCA object to apply to the data. Required when train=False
@@ -104,20 +104,23 @@ def get_subset(data, subset_size, sample_ind=None):
 
 
 def dimentionality_reduction_PCA(x, train=True, n_comps=750, pca=None, use_subset=True, subset=5000):
-    '''
+    '''Applies PCA to the data. When training mode is false uses the input pca object. When in training mode,
+    trains the PCA and then applies PCA.
     
     ARGS
     ----
-    x
-    train
-    n_comps
-    pca
-    subset
+    x: (np.Array) Data for pca application
+    train: (boolean) Training switch when true, pca will be trained. Otherwise the input object will
+        be applied to the data
+    n_comps: (int) Number of components in PCA output
+    pca: (sklearn.decomposition.PCA) PCA object to apply to the data. Required when train=False
+    use_subset: (boolean) Subset usage switch. Uses subset when True
+    subset: (int) Size of the subset
 
     RETURNS
     -------
-    x_reduced
-    pca
+    x_reduced: (np.Array) PCA output of the data
+    pca: (sklearn.decomposition.PCA) PCA object, same as input when train=False. Otherwise, the trained object
     '''
 
     if train:

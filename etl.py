@@ -19,7 +19,10 @@ def get_unkown_mapping(attr_mapping_df):
         is 'unknown'
     '''
     
-    unknown_mapping = attr_mapping_df[attr_mapping_df['Meaning']=='unknown'].set_index('Attribute')['Value']
+    attr_mapping_clean = attr_mapping_df.copy()
+    attr_mapping_clean.fillna(method='ffill', inplace=True)
+
+    unknown_mapping = attr_mapping_clean[attr_mapping_clean['Meaning']=='unknown'].set_index('Attribute')['Value']
 
     return unknown_mapping
 
@@ -88,8 +91,7 @@ def transform_azdias(azdias_df, attr_mapping_df, top_level_attr_df, missing_cols
     
     azdias_df_filtered = azdias_df.copy()
     all_attributes = get_all_attributes(attr_mapping_df, top_level_attr_df)
-    attr_mapping_clean = transfrom_attribute_map(attr_mapping_df)
-    unknown_mapping = get_unkown_mapping(attr_mapping_clean)
+    unknown_mapping = get_unkown_mapping(attr_mapping_df)
 
     print('Setting LNR as index...')
     azdias_df_filtered.set_index('LNR', inplace=True)
@@ -143,8 +145,7 @@ def etl_transform(df, attributes_list, attr_mapping_df):
     
     print('Filtering features according to provided attribute list...')
     df_clean = df[['LNR', *attributes_list]].copy()
-    attr_mapping_clean = transfrom_attribute_map(attr_mapping_df)
-    unknown_mapping = get_unkown_mapping(attr_mapping_clean)
+    unknown_mapping = get_unkown_mapping(attr_mapping_df)
 
     df_clean.set_index('LNR', inplace=True)
     df_clean['CAMEO_DEUG_2015'] = np.where(df_clean['CAMEO_DEUG_2015']=='X', np.NaN, df_clean['CAMEO_DEUG_2015'])

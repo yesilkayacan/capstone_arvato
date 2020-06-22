@@ -50,7 +50,6 @@ def get_all_attributes(attr_mapping_df, top_level_attr_df):
     return all_attributes
 
 
-
 def transform_azdias(azdias_df, attr_mapping_df, top_level_attr_df, missing_cols_thresh=0.2, missing_rows_thresh=0.4):
     '''Clean the Udacity_AZDIAS dataset. Sets 'LNR' as index, removes 'EINGEFUEGT_AM' and 
     the features that have not been explained in attr_mapping_df or  top_level_attr_df.

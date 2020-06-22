@@ -6,10 +6,26 @@ from utils import decode_missing_values
 from utils import remove_above_percent
 from utils import ratio_missing
 
+def get_unkown_mapping(attr_mapping_df):
+    '''Creates a dataframe of the 'Attribute'-'Meaning' couples where the 'Meaning' is 'unknown'
+    
+    ARGS
+    ----
+    attr_mapping_df: (pandas.DataFrame) Dataframe that has a Attribute and Meaning column
+
+    RETURNS
+    -------
+    unknown_mapping: (pandas.DataFrame) Dataframe of the 'Attribute'-'Meaning' couples where the 'Meaning'
+        is 'unknown'
+    '''
+    
+    unknown_mapping = attr_mapping_clean[attr_mapping_clean['Meaning']=='unknown'].set_index('Attribute')['Value']
+
+    return unknown_mapping
+
 
 def transfrom_attribute_map(attr_mapping_df):
-    '''Cleans the attr_mapping_df by filling the missing values. Also creates a dataframe of the 
-    'Attribute'-'Meaning' couples where the 'Meaning' is 'unknown'
+    '''Cleans the attr_mapping_df by filling the missing values. 
     
     ARGS
     ----
@@ -19,17 +35,14 @@ def transfrom_attribute_map(attr_mapping_df):
     -------
     attr_mapping_clean: (pandas.DataFrame) Copy of attr_mapping_df where the nan values are filled with
         a forward fill and 'Meaning' matching 'unknown' rows have been removed
-    unknown_mapping: (pandas.DataFrame) Dataframe of the 'Attribute'-'Meaning' couples where the 'Meaning'
-        is 'unknown'
     '''
     
     attr_mapping_clean = attr_mapping_df.copy()
     attr_mapping_clean.fillna(method='ffill', inplace=True)
 
-    unknown_mapping = attr_mapping_clean[attr_mapping_clean['Meaning']=='unknown'].set_index('Attribute')['Value']
     attr_mapping_clean.drop(attr_mapping_clean[attr_mapping_clean['Meaning']=='unknown'].index, axis=0, inplace=True)
 
-    return attr_mapping_clean, unknown_mapping
+    return attr_mapping_clean
 
 
 def get_all_attributes(attr_mapping_df, top_level_attr_df):

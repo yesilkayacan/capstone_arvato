@@ -40,50 +40,28 @@ def decode_missing_values(df, unknown_mapping):
     return df_clean
 
 
-def ratio_missing(df, plot=False):
-    '''Calculate the ratio of missing values in each row and column. Returns the ratios with a descending order
+def ratio_missing(df, axis):
+    '''Calculate the ratio of missing values in specified axis. Returns the ratios with a descending order
     
     ARGS
     ----
     df: (Pandas DataFrame) DataFrame of interest to perform missing value analysis on
-    plot: (bool) It true the results are plotted as a histogram
+    axis: (integer) 1 for rows and 0 for columns
     
     RETURNS
     -------
-    ratio_missing_rows: (pandas Serie) Series of sorted missing value ratios per each row
-    ratio_missing_cols: (pandas Serie) Series of sorted missing value ratios per each column
+    ratio_missing_rows: (pandas Serie) Series of sorted missing value ratios per
     '''
     
-    n_rows = df.shape[0]
-    n_cols = df.shape[1]
+    n = df.shape[axis]
     
-    n_missing_cols = df.isnull().sum(axis=0) #number of missing values per columns
-    ratio_missing_cols = n_missing_cols/n_rows #number of missing values per column divided by number of rows
+    n_missing = df.isnull().sum(axis=axis) #number of missing values per columns
+
+    ratio_missing = n_missing/n #number of missing values per column divided by number of rows
+
+    ratio_missing = ratio_missing.sort_values(ascending=False)
     
-    n_missing_rows = df.isnull().sum(axis=1) #number of missing values per row
-    ratio_missing_rows = n_missing_rows/n_cols #number of missing values per row divided by number of columns
-    
-    ratio_missing_cols = ratio_missing_cols.sort_values(ascending=False)
-    ratio_missing_rows = ratio_missing_rows.sort_values(ascending=False)
-    
-    if plot:
-        plt.figure(figsize=(14,10))
-        plt.subplot(2,1,1)
-        bins = np.arange(0, 1, step=0.02)
-        ratio_missing_cols.hist(bins=bins)
-        plt.xlabel('Ratio of Missing Values')
-        plt.ylabel('Number of Features')
-        plt.title('Ratio of Missing Value per Feature')
-        plt.xlim((0, 1))
-        
-        plt.subplot(2,1,2)
-        ratio_missing_rows.hist(bins=bins)
-        plt.xlabel('Ratio of Missing Values')
-        plt.ylabel('Number of Rows')
-        plt.title('Ratio of Missing Value per Row')
-        plt.xlim((0, 1))
-    
-    return ratio_missing_rows, ratio_missing_cols
+    return ratio_missing
 
 
 def remove_above_percent(df, missing_ratios, percent, axis=1):

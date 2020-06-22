@@ -1,10 +1,37 @@
 import pandas as pd
 import numpy as np
 
+import sklearn
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
 from etl import transfrom_attribute_map
 
-def preprocess_data(df, attr_mapping, train=True, scaler=None, pca=None):
-    '''
+from utils import categorize
+
+def preprocess_data(df, attr_mapping_df, train=True, scaler=None, pca=None):
+    '''Preprocesses data to to get ready for machine learning algortithms. The preprocessing steps are
+    using one hot encoding to encode categorical features. Scaling the categorized data using standardization
+    and applying PCA fore feature number reduction.
+
+    There is a additional training swith implemented. This enables the standard scaler and PCA to be trained.
+    Otherwise the the scaler and pca objects need to be provided and these provided objects will be applied to the data.
+
+    ARGS
+    ----
+    df: (pandas.DataFrame) Cleaned dataframe to be preprocessed
+    attr_mapping_df: (pandas.DataFrame) Dataframe that has a Attribute and Meaning column
+    train: (boolean) Training swith when true, scaler and pca will be trained. Otherwise these input objects will
+        be applied to the data
+    scaler: (sklearn.preprocessing.StandardScaler) Scaler object to apply to the data. Required when train=False
+    pca: (sklearn.decomposition.PCA) PCA object to apply to the data. Required when train=False
+
+    RETURNS
+    -------
+    df_reduced: (numpy.Array) Preprocessed output of df. Onehot encoded, scaled and PCA applied
+    df_preprocessed: (pandas.DataFrame) Copy of input df as categorized
+    scaler: (sklearn.preprocessing.StandardScaler) Scaler object, same as input when train=False. Otherwise, the trained object
+    pca: (sklearn.decomposition.PCA) PCA object, same as input when train=False. Otherwise, the trained object
     
     '''
     
@@ -30,16 +57,21 @@ def preprocess_data(df, attr_mapping, train=True, scaler=None, pca=None):
     print('Categorizing qualitative features:')
     df_preprocessed = categorize(df_preprocessed, qualitative_features_mapping)
     
-    
     if train:
         # in training mode
-        print('Training StandardScaler and standardizing data:')
+        print('Training StandardScaler...')
         scaler = StandardScaler()
         df_scaled = scaler.fit_transform(df_preprocessed)
+        print('Starting PCA...')
+        df_reduced, pca = dimentionality_reduction_PCA(df_scaled, train=True, n_comps=750, pca=None, use_subset=True, subset=60000)
     else:
         print('Standardizing data:')
         df_scaled = scaler.transform(df_preprocessed)
+        print('Starting PCA...')
+        df_reduced, pca = dimentionality_reduction_PCA(df_scaled, train=False, pca=pca, use_subset=False)
     
+    print('Preprocessing complete')
+
     return df_reduced, df_preprocessed, scaler, pca
 
 
@@ -71,16 +103,38 @@ def get_subset(data, subset_size, sample_ind=None):
 
 
 
-def dimentionality_reduction_PCA(x, train=True, pca=None, use_subset=True, subset=5000):
-
-    if use_subset:
-        x, sample_ind = get_subset(x, subset, sample_ind=None)
+def dimentionality_reduction_PCA(x, train=True, n_comps=750, pca=None, use_subset=True, subset=5000):
+    '''
     
+    ARGS
+    ----
+    x
+    train
+    n_comps
+    pca
+    subset
+
+    RETURNS
+    -------
+    x_reduced
+    pca
+    '''
+
     if train:
-        pca = PCA(750)
-        print('Fitting PCA')
+        pca = PCA(n_comps)
+
+        if use_subset:
+            print('Getting the subset with {} samples'.format(subset))
+            x_train, sample_ind = get_subset(x, subset, sample_ind=None)
+        else:
+            x_train = x
+        
+        print('Training PCA...')
+        pca.fit_transform(x_train)
+        print('Fitting PCA...')
         x_reduced = pca.fit_transform(x)
     else:
+        print('Fitting PCA...')
         x_reduced = pca.transform(x)
 
     return x_reduced, pca

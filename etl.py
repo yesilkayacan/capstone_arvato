@@ -200,7 +200,7 @@ def etl_transform(df, attributes_list, attr_mapping_df):
     LNR will be set as index.
     Rows having incorrect data as 'X' values in featrue 'CAMEO_DEUG_2015' will be removed.
     Decodes all the missing value encodings in the data as np.nan.
-    Finally remove all the rows that are left with a missing value.
+    Finally impute missing values with most frequent if categorical or median if quantitative.
     Returns the cleaned dataframe.
 
     ARGS
@@ -223,9 +223,13 @@ def etl_transform(df, attributes_list, attr_mapping_df):
     print('Decoding and converting missing values to NaN...')
     df_clean = decode_missing_values(df_clean, unknown_mapping)
     
-    print('Dropping rows with NaN values...')
-    df_clean.dropna(axis=0, inplace=True)
+    print('Imputing missing values...')
+    df_clean = impute_na(df_clean)
     
+    print('Ratio of data used')
+    print('features: %.2f' % (df_clean.shape[1]/df.shape[1]*100))
+    print('observations: %.2f' % (df_clean.shape[0]/df.shape[0]*100))
+
     return df_clean
 
 

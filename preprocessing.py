@@ -97,7 +97,7 @@ def get_subset(data, subset_size, sample_ind=None):
     if sample_ind==None:
         sample_ind = np.random.choice(data.shape[0], size=subset_size, replace=False)
 
-    subset = data[sample_ind]
+    subset = data.iloc[sample_ind, :]
 
     return subset, sample_ind
 

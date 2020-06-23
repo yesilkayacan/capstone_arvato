@@ -58,8 +58,16 @@ def get_feature_types(df):
 
 
 def impute_na(df):
-    '''
+    '''Impute data inplace of missing values. Uses median for quantitative 
+    data and most frequent for qualitative data.'
     
+    ARGS
+    ----
+    df: (pandas.DataFrame) Dataframe where the missing values will be replaced
+
+    RETURNS
+    -------
+    df_impute: (pandas.DataFrame) Copy of df where the missing values have been imputed
     '''
     
     df_impute = df.copy()

@@ -167,7 +167,8 @@ def transform_azdias(azdias_df, attr_mapping_df, top_level_attr_df, missing_cols
     print('Setting LNR as index...')
     azdias_df_filtered.set_index('LNR', inplace=True)
     azdias_df_filtered.drop('EINGEFUEGT_AM', axis=1, inplace=True)
-    
+    azdias_df_filtered.drop('ARBEIT', axis=1, inplace=True)
+
     print('Removing attriubtes that are not explained...')
     attributes_not_explained = azdias_df_filtered.columns[~azdias_df_filtered.columns.isin(all_attributes)] # columns not in attribute explanation files
     azdias_df_filtered.drop(attributes_not_explained, axis=1, inplace=True)

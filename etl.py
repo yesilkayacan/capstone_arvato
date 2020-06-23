@@ -144,7 +144,7 @@ def transform_azdias(azdias_df, attr_mapping_df, top_level_attr_df, missing_cols
     Cleans 'CAMEO_DEUG_2015' attribute where some data are falsely logged as 'X'.
     Decodes all the missing value encodings in the data as np.nan.
     Remove the features and rows where the missing values are above a given threshold.
-    Finally remove all the rows that are left with a missing value.
+    Finally impute missing values with most frequent if categorical or median if quantitative.
     Returns the cleaned dataframe.
 
     ARGS

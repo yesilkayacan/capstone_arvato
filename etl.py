@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import pickle
+import progressbar
 
 from utils import decode_missing_values
 from utils import remove_above_percent
@@ -46,7 +47,7 @@ def get_feature_types(df):
     numeric_features = ['ANZ_HAUSHALTE_AKTIV', 'ANZ_HH_TITEL', 'ANZ_PERSONEN', 'ANZ_TITEL', 'GEBURTSJAHR', 'KBA13_ANZAHL_PKW', 'MIN_GEBAEUDEJAHR']
     
     # The numeric_features have been manually extracted from the DIAS Attributes - Values 2017.xlsx file
-    numeric_features_used = [x for x in df_impute.columns if x in(numeric_features)]
+    numeric_features_used = [x for x in df.columns if x in(numeric_features)]
     
     # all other features are assumed to be categorical
     # qualitative_features = list(set(attr_mapping_clean['Attribute'].unique()).difference(set(numeric_features)))
@@ -54,6 +55,40 @@ def get_feature_types(df):
     qualitative_features_used = np.setdiff1d(df.columns, numeric_features_used)
     
     return qualitative_features_used, numeric_features_used
+
+
+def impute_na(df):
+    '''
+    
+    '''
+    
+    df_impute = df.copy()
+    
+    qualitative_features_used, numeric_features_used = get_feature_types(df_impute)
+    
+    print('Imputing quantitative features...')
+    cnter = 0
+    bar = progressbar.ProgressBar(maxval=len(numeric_features_used)+1, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+    bar.start()
+    # impute median for missing values in quantitative features
+    for feat in numeric_features_used:
+        df_impute[feat] = df_impute[feat].fillna(df_impute[feat].median())
+        cnter+=1 
+        bar.update(cnter)
+    bar.finish()
+    
+    print('Imputing qualitative features...')
+    cnter = 0
+    bar = progressbar.ProgressBar(maxval=len(qualitative_features_used)+1, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+    bar.start()
+    # impute mode (most frequent) for missing values in qualitative features
+    for feat in qualitative_features_used:
+        df_impute[feat] = df_impute[feat].fillna(df_impute[feat].mode().iloc[0])
+        cnter+=1 
+        bar.update(cnter)
+    bar.finish()
+    
+    return df_impute
 
 
 def transfrom_attribute_map(attr_mapping_df):
@@ -95,7 +130,7 @@ def get_all_attributes(attr_mapping_df, top_level_attr_df):
     return all_attributes
 
 
-def transform_azdias(azdias_df, attr_mapping_df, top_level_attr_df, missing_cols_thresh=0.2, missing_rows_thresh=0.4):
+def transform_azdias(azdias_df, attr_mapping_df, top_level_attr_df, missing_cols_thresh=0.2):
     '''Clean the Udacity_AZDIAS dataset. Sets 'LNR' as index, removes 'EINGEFUEGT_AM' and 
     the features that have not been explained in attr_mapping_df or  top_level_attr_df.
     Cleans 'CAMEO_DEUG_2015' attribute where some data are falsely logged as 'X'.
@@ -110,7 +145,6 @@ def transform_azdias(azdias_df, attr_mapping_df, top_level_attr_df, missing_cols
     attr_mapping_df: (pandas.DataFrame)  Dataframe that has a Attribute and Meaning column
     top_level_attr_df: (pandas.DataFrame) Dataframe that has a Attribute column
     missing_cols_thresh: (float) Threshold to remove features with missing value ratio above
-    missing_rows_thresh: (float) Threshold to remove rows with missing value ratio above
 
     RETURNS
     -------
@@ -136,14 +170,13 @@ def transform_azdias(azdias_df, attr_mapping_df, top_level_attr_df, missing_cols
     
     print('Decoding and converting missing values to NaN...')
     azdias_df_filtered = decode_missing_values(azdias_df_filtered, unknown_mapping)
-    ratio_missing_rows, ratio_missing_cols = ratio_missing(azdias_df_filtered, plot=False)
+    ratio_missing_cols = ratio_missing(azdias_df_filtered, axis=0)
     
     print('Removing missing values according to row and collumn thresholds...')
     azdias_df_filtered = remove_above_percent(azdias_df_filtered, ratio_missing_cols, missing_cols_thresh, axis=1)
-    azdias_df_filtered = remove_above_percent(azdias_df_filtered, ratio_missing_rows, missing_rows_thresh, axis=0)
     
-    print('Removing rows which are left with missing values...')
-    azdias_df_filtered.dropna(axis=0, inplace=True)
+    print('Imputing missing values...')
+    azdias_df_filtered = impute_na(azdias_df_filtered)
 
     print('Ratio of data used')
     print('features: %.2f' % (azdias_df_filtered.shape[1]/azdias_df.shape[1]*100))

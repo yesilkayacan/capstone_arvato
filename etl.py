@@ -27,6 +27,35 @@ def get_unkown_mapping(attr_mapping_df):
     return unknown_mapping
 
 
+def get_feature_types(df):
+    '''Returns list of numeric features and the categorical features in the data. Numerical features
+    have been extracted from DIAS Attributes - Values 2017.xlsx file manually. All other features are
+    are assumed to be categorical (since all the left features in DIAS Attributes - Values 2017.xlsx 
+    are categorical).
+
+    ARGS
+    ----
+    df: (pandas.DataFrame) Dataframe whose features are clasified as categorical or numerical
+
+    RETURNS
+    -------
+    qualitative_features_used: (list) Qualitative features in the dataframe df
+    numeric_features_used: (list) Quantitative features in the dataframe df
+    '''
+    
+    numeric_features = ['ANZ_HAUSHALTE_AKTIV', 'ANZ_HH_TITEL', 'ANZ_PERSONEN', 'ANZ_TITEL', 'GEBURTSJAHR', 'KBA13_ANZAHL_PKW', 'MIN_GEBAEUDEJAHR']
+    
+    # The numeric_features have been manually extracted from the DIAS Attributes - Values 2017.xlsx file
+    numeric_features_used = [x for x in df_impute.columns if x in(numeric_features)]
+    
+    # all other features are assumed to be categorical
+    # qualitative_features = list(set(attr_mapping_clean['Attribute'].unique()).difference(set(numeric_features)))
+    # qualitative_features_used = [x for x in df_impute.columns if x in(qualitative_features)]
+    qualitative_features_used = np.setdiff1d(df.columns, numeric_features_used)
+    
+    return qualitative_features_used, numeric_features_used
+
+
 def transfrom_attribute_map(attr_mapping_df):
     '''Cleans the attr_mapping_df by filling the missing values. 
     

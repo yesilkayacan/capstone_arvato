@@ -1,3 +1,7 @@
+import numpy as np
+import progressbar
+
+
 class Missing_val():
     
     def __init__(self, mapping_obj):
@@ -7,6 +11,7 @@ class Missing_val():
     
     def scan_irregularities(self, df):
         '''
+
         '''
         
         check_dict = mergeDict(self.mapping.known_mapping, self.mapping.unknown_mapping)
@@ -14,7 +19,7 @@ class Missing_val():
         
         all_keys = check_dict.keys()
         
-        feature_investigate = set(azdias.columns).intersection(all_keys)
+        feature_investigate = set(df.columns).intersection(all_keys)
         
         cnter = 0
         bar = progressbar.ProgressBar(maxval=len(feature_investigate)+1, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])

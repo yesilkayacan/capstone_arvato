@@ -313,6 +313,17 @@ def etl_transform(df, attr_mapping, ref_cols=None):
     print('Ratio of data used')
     print('features: %.2f' % (df_clean.shape[1]/df.shape[1]*100))
 
+    print('OneHot Encoding data...')
+    categorized_df = categorize(df_clean, attr_mapping.known_mapping)
+    categorized_df.set_index('LNR', inplace=True)
+
+    print('Scaling data...')
+    scaler = StandardScaler()
+    scaled_data = scaler.fit_transform(categorized_df)
+
+    print('Finishing.')
+    df_scaled = pd.DataFrame(scaled_data, columns = categorized_df.columns.values, index=categorized_df.index)
+
     return df_clean
 
 

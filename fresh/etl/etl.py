@@ -354,3 +354,60 @@ def impute_na(df):
     bar.finish()
     
     return df_impute
+
+
+def categorize(df, attribute_mapping):
+    '''One hot encoder, encodes the dataframe categorical attributes and returns the encoded dataframe.
+    
+    ARGS
+    ----
+    df: (pandas.DataFrame) Dataframe which the features will be encoded
+    categorical_mapping: (pandas.DataFrame) Dataframe with the encoding information. 
+        The dataframe should have a 'Attribute' column consisting of feature names and 'Value' 
+        column with individual categories of that attribute. Each category should be a individual row in the dataframe.
+
+    RETURNS
+    -------
+    categorized_df: (pandas.DataFrame) Copy of df where all the categorical features have been one hot encoded.
+    '''
+    
+    categorized_df = df.copy()
+    
+    feature_list = list(set(categorized_df.columns).intersection(attribute_mapping.keys()))
+    
+    cnter = 0
+    bar = progressbar.ProgressBar(maxval=len(feature_list)+1, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+    bar.start()
+    
+    for feat in feature_list:
+        
+        try:
+            categories = attribute_mapping[feat]
+            categorized_df[feat] = categorized_df[feat].astype(int)
+        except:
+            categories = attribute_mapping[feat]
+        
+        dummies = pd.get_dummies(categorized_df[feat], drop_first=False, prefix=feat, prefix_sep='_d_')
+        
+        not_categorized = np.setdiff1d(categories, categorized_df[feat].unique())
+        if not_categorized is not None:
+            for ncat in not_categorized:
+                dummies[(feat+'_d_'+str(ncat))] = 0
+            
+        try:
+            categorized_df = categorized_df.join(dummies)
+            categorized_df.drop(feat, axis=1, inplace=True)
+        except:
+            print('Error during encoding')
+            print('Error feature: {}'.format(feat))
+            print('Encoded top 10 rows as:')
+            print(dummies.head(10))
+            break
+    
+        # Update the progress bar
+        cnter+=1 
+        bar.update(cnter)
+        
+    bar.finish()
+
+    return categorized_df

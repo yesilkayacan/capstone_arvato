@@ -3,7 +3,7 @@ import progressbar
 import pandas as pd
 
 
-class Missing_val():
+class Data_Correction():
     
     def __init__(self, mapping_obj):
         
@@ -294,3 +294,61 @@ def ratio_missing(df, axis):
     ratio_missing = ratio_missing.sort_values(ascending=False)
     
     return ratio_missing
+
+
+def etl_transform(df, attr_mapping, ref_cols=None):
+    '''Transform any data set taking into reference the attributes from the already transformed azdias dataset.
+    The dataframe needs to have 'LNR' as one of the columns.
+    Filter the data to have all the attributes listed in attributes_list.
+    LNR will be set as index.
+    Rows having incorrect data as 'X' values in featrue 'CAMEO_DEUG_2015' will be removed.
+    Decodes all the missing value encodings in the data as np.nan.
+    Finally impute missing values with most frequent if categorical or median if quantitative.
+    Returns the cleaned dataframe.
+
+    ARGS
+    ----
+    df: (pandas.DataFrame) Udacity_AZDIAS dataframe to be cleaned
+    attributes_list: (list) List of features in the reference data set (already transformed azdias dataset)
+
+    RETURNS
+    -------
+    df_clean: (pandas.DataFrame) Cleaned copy of df dataframe
+    '''
+    
+    df_clean = df.copy()
+    
+    print('Correcting issues on edge cases...')
+    fix_edge_cases(df_clean)
+    
+    print('Checking for irregular values...')
+    missing = Missing_val(attr_mapping)
+    irregular_values = missing.scan_irregularities(df_clean)
+    attr_mapping.add_to_unknown_mapping(irregular_values)
+    
+    print('Decoding missing or unknown values as NaN...')
+    df_clean = missing.decode_missing_values(df_clean)
+    
+    if ref_cols is None:
+        print('Finding the features to remove...')
+        attr_not_mapped = set(np.setdiff1d(df_clean.columns, attr_mapping.defined_attributes))
+        drop_set = attr_not_mapped.copy()
+        
+        ratio_missing_cols = ratio_missing(df_clean, axis=0)
+        above_missing_thresh = ratio_missing_cols[ratio_missing_cols>0.2]
+        drop_set = drop_set.union(above_missing_thresh.index) 
+        drop_set.remove('LNR')
+        df_clean.drop(drop_set, axis=1, inplace=True)
+    
+    else:
+        print('getting the subset of the data with the reference features...')
+        df_clean = df_clean[ref_cols]
+    
+    print('Imputing missing values...')
+    df_clean = impute_na(df_clean)
+    
+    print('Ratio of data used')
+    print('features: %.2f' % (df_clean.shape[1]/df.shape[1]*100))
+    print('observations: %.2f' % (df_clean.shape[0]/df.shape[0]*100))
+
+    return df_clean

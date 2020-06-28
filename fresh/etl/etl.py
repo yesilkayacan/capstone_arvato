@@ -280,7 +280,7 @@ def etl_transform(df, attr_mapping, ref_cols=None):
     Data_Correction.fix_edge_cases(df_clean)
     
     print('Checking for irregular values...')
-    corrector = Missing_val(attr_mapping)
+    corrector = Data_Correction(attr_mapping)
     irregular_values = corrector.scan_irregularities(df_clean)
     attr_mapping.add_to_unknown_mapping(irregular_values)
     

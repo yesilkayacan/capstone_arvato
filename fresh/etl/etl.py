@@ -78,6 +78,17 @@ class Data_Correction():
         return df_clean
 
 
+    def fix_edge_cases(df):
+        '''
+        
+        '''
+        
+        df['CAMEO_DEUG_2015'] = np.where(df['CAMEO_DEUG_2015'].isin(['X', 'XX']), np.NaN, df['CAMEO_DEUG_2015'])
+        df['CAMEO_DEUG_2015'] = df['CAMEO_DEUG_2015'].astype(float)
+        
+        df['CAMEO_DEU_2015'] = np.where(df['CAMEO_DEU_2015'].isin(['X', 'XX']), np.NaN, df['CAMEO_DEU_2015'])
+
+
 class AttributeMapping():
     '''
     
@@ -247,17 +258,6 @@ def impute_na(df):
     bar.finish()
     
     return df_impute
-
-
-def fix_edge_cases(df):
-    '''
-    
-    '''
-    
-    df['CAMEO_DEUG_2015'] = np.where(df['CAMEO_DEUG_2015'].isin(['X', 'XX']), np.NaN, df['CAMEO_DEUG_2015'])
-    df['CAMEO_DEUG_2015'] = df['CAMEO_DEUG_2015'].astype(float)
-    
-    df['CAMEO_DEU_2015'] = np.where(df['CAMEO_DEU_2015'].isin(['X', 'XX']), np.NaN, df['CAMEO_DEU_2015'])
 
 
 # source https://thispointer.com/how-to-merge-two-or-more-dictionaries-in-python/

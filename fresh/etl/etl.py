@@ -277,7 +277,7 @@ def ratio_missing(df, axis):
     return ratio_missing
 
 
-def etl_transform(df, attr_mapping, ref_cols=None):
+def etl_transform(df, attr_mapping, ref_cols):
     '''Transform any data set taking into reference the attributes from the already transformed azdias dataset.
     The dataframe needs to have 'LNR' as one of the columns.
     Filter the data to have all the attributes listed in attributes_list.
@@ -310,21 +310,12 @@ def etl_transform(df, attr_mapping, ref_cols=None):
     print('Decoding missing or unknown values as NaN...')
     df_clean = corrector.decode_missing_values(df_clean)
     
-    if ref_cols is None:
-        print('Finding the features to remove...')
-        attr_not_mapped = set(np.setdiff1d(df_clean.columns, attr_mapping.defined_attributes))
-        drop_set = attr_not_mapped.copy()
-        
-        ratio_missing_cols = ratio_missing(df_clean, axis=0)
-        above_missing_thresh = ratio_missing_cols[ratio_missing_cols>0.2]
-        drop_set = drop_set.union(above_missing_thresh.index) 
-        drop_set.remove('LNR')
-        df_clean.drop(drop_set, axis=1, inplace=True)
+    print('getting the subset of the data with the reference features...')
+    df_clean = df_clean[ref_cols]
     
-    else:
-        print('getting the subset of the data with the reference features...')
-        df_clean = df_clean[ref_cols]
-    
+    print('Correcting data types...')
+    df_clean = corrector.correct_data_types(df_clean)
+
     print('Imputing missing values...')
     df_clean = impute_na(df_clean)
 

@@ -93,6 +93,21 @@ class Data_Correction():
         
         df['CAMEO_DEU_2015'] = np.where(df['CAMEO_DEU_2015'].isin(['X', 'XX']), np.NaN, df['CAMEO_DEU_2015'])
 
+    
+    def correct_data_types(self, df):
+        '''
+        
+        '''
+
+        qualitative_features, numeric_features = self.mapping.get_feature_types(df)
+
+        print('Assigning float to numeric features...')
+        df[numeric_features] = df[numeric_features].astype(float)
+        print('Assigning string to qualitative features...')
+        df[qualitative_features] = df[qualitative_features].astype(str)
+
+        return df
+
 
 class AttributeMapping():
     '''
@@ -106,7 +121,6 @@ class AttributeMapping():
         self.attr_mapping_df = AttributeMapping._get_clean_df(attribute_map_file)
         self.defined_attributes = list(self.attr_mapping_df['Attribute'].unique())
         
-        
         self.unknown_mapping = self.get_unkown_mapping(self.attr_mapping_df)
         self.known_mapping = self.get_known_mapping(self.attr_mapping_df)
         
@@ -117,7 +131,10 @@ class AttributeMapping():
         '''
         
         attr_mapping_df = pd.read_excel(attribute_map_file, header=1, dtype=str)
-        del attr_mapping_df['Unnamed: 0']
+        try:
+            del attr_mapping_df['Unnamed: 0']
+        except:
+            pass
         
         attr_mapping_clean_df = AttributeMapping._transfrom_attribute_map(attr_mapping_df)
         
@@ -156,7 +173,7 @@ class AttributeMapping():
             represents unknown
         '''
         
-        unknown_mapping = df[df['Meaning'].isin(self.UNKNOWN_DETECTION_KEYWORDS)].set_index('Attribute')['Value'].apply(lambda x: [int(x) for x in x.split(',')]).to_dict()
+        unknown_mapping = df[df['Meaning'].isin(self.UNKNOWN_DETECTION_KEYWORDS)].set_index('Attribute')['Value'].apply(lambda x: [str(x).strip() for x in x.split(',')]).to_dict()
         
         return unknown_mapping
     
@@ -179,7 +196,7 @@ class AttributeMapping():
         for key, val in known_mapping.items():
             
             try:
-                known_mapping[key] = list(map(int, val))
+                known_mapping[key] = list(map(str, val))
             except:
                 pass
         
@@ -194,7 +211,7 @@ class AttributeMapping():
         self.unknown_mapping = mergeDict(self.unknown_mapping, addition)
 
 
-    def get_feature_types(df):
+    def get_feature_types(self, df):
         '''Returns list of numeric features and the categorical features in the data. Numerical features
         have been extracted from DIAS Attributes - Values 2017.xlsx file manually. All other features are
         are assumed to be categorical (since all the left features in DIAS Attributes - Values 2017.xlsx 
@@ -210,15 +227,16 @@ class AttributeMapping():
         numeric_features_used: (list) Quantitative features in the dataframe df
         '''
         
-        numeric_features = ['ANZ_HAUSHALTE_AKTIV', 'ANZ_HH_TITEL', 'ANZ_PERSONEN', 'ANZ_TITEL', 'GEBURTSJAHR', 'KBA13_ANZAHL_PKW', 'MIN_GEBAEUDEJAHR']
+        qualitative_features_used = [x for x in df.columns if x in self.known_mapping.keys()]
+        numeric_features_used = np.setdiff1d(df.columns, qualitative_features_used)
+        
+        #numeric_features = ['ANZ_HAUSHALTE_AKTIV', 'ANZ_HH_TITEL', 'ANZ_PERSONEN', 'ANZ_TITEL', 'GEBURTSJAHR', 'KBA13_ANZAHL_PKW', 'MIN_GEBAEUDEJAHR']
         
         # The numeric_features have been manually extracted from the DIAS Attributes - Values 2017.xlsx file
-        numeric_features_used = [x for x in df.columns if x in(numeric_features)]
+        #numeric_features_used = [x for x in df.columns if x in(numeric_features)]
         
         # all other features are assumed to be categorical
-        # qualitative_features = list(set(attr_mapping_clean['Attribute'].unique()).difference(set(numeric_features)))
-        # qualitative_features_used = [x for x in df_impute.columns if x in(qualitative_features)]
-        qualitative_features_used = np.setdiff1d(df.columns, numeric_features_used)
+        #qualitative_features_used = np.setdiff1d(df.columns, numeric_features_used)
         
         return qualitative_features_used, numeric_features_used
 
@@ -342,7 +360,7 @@ def impute_na(df):
     
     df_impute = df.copy()
     
-    qualitative_features_used, numeric_features_used = AttributeMapping.get_feature_types(df_impute)
+    qualitative_features_used, numeric_features_used = corrector_obj.get_feature_types(df_impute)
     
     print('Imputing quantitative features...')
     cnter = 0

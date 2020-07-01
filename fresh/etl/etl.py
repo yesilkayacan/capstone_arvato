@@ -345,7 +345,7 @@ def etl_transform(df, attr_mapping, ref_cols=None):
     return df_clean
 
 
-def impute_na(df):
+def impute_na(df, mapping_obj):
     '''Impute data inplace of missing values. Uses median for quantitative 
     data and most frequent for qualitative data.'   
     
@@ -360,7 +360,7 @@ def impute_na(df):
     
     df_impute = df.copy()
     
-    qualitative_features_used, numeric_features_used = corrector_obj.get_feature_types(df_impute)
+    qualitative_features_used, numeric_features_used = mapping_obj.get_feature_types(df_impute)
     
     print('Imputing quantitative features...')
     cnter = 0

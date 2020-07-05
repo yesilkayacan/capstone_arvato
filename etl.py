@@ -1,65 +1,344 @@
-import pandas as pd
 import numpy as np
-import pickle
 import progressbar
+import pandas as pd
+import copy
+import pickle
 
-from utils import decode_missing_values
-from utils import remove_above_percent
-from utils import ratio_missing
 
-def get_unkown_mapping(attr_mapping_df):
-    '''Creates a dataframe of the 'Attribute'-'Meaning' couples where the 'Meaning' is 'unknown'
+class Data_Correction():
+    
+    def __init__(self, mapping_obj):
+        
+        self.mapping = mapping_obj
+        
+    
+    def scan_irregularities(self, df):
+        '''
+
+        '''
+        
+        known_mapping = copy.deepcopy(self.mapping.known_mapping)
+        unknown_mapping = copy.deepcopy(self.mapping.unknown_mapping)
+
+        check_dict = mergeDict(known_mapping, unknown_mapping)
+        [check_dict[x].append(np.nan) for x in check_dict.keys()]
+        
+        all_keys = check_dict.keys()
+        
+        feature_investigate = set(df.columns).intersection(all_keys)
+        
+        cnter = 0
+        bar = progressbar.ProgressBar(maxval=len(feature_investigate)+1, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+        bar.start()
+        
+        issues = dict([])
+        for feature in feature_investigate:
+            
+            irregular_found = df[feature][~df[feature].isin(check_dict[feature])].unique()
+            
+            if len(irregular_found)!=0:
+                issues[feature] = [x for x in irregular_found if str(x) != 'nan']
+            
+            cnter+=1 
+            bar.update(cnter)
+
+        bar.finish()
+        
+        return issues
+    
+    
+    def decode_missing_values(self, df):
+        '''Replaces the values encoded as unkown in df as np.nan. The encoding for unkown values are 
+        given in unknown_mapping
+
+        ARGS
+        ----
+        df: (pandas.DataFrame) Dataframe where the encoded unkown values will be decoded as np.nan
+        unkown_mapping: (pandas.Series) Series mapping the unknown encodings. Index is the featurea and 
+        the value is the encoded value for unkowns. The encoding is a string of values seperated by ','. Eg. '-1, 9'
+
+        RETURNS
+        -------
+        df_clean: (pandas.DataFrame) Copy of df where the unknown values are decoded as np.nan
+        '''
+
+        df_clean = df.copy()
+
+        features_mapped = list(set(df_clean.columns).intersection(self.mapping.unknown_mapping.keys()))
+
+        cnter = 0
+        bar = progressbar.ProgressBar(maxval=len(features_mapped)+1, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+        bar.start()
+
+        for feat in features_mapped:
+            # loop through features both in unknown maoppings and the dataframe
+            for val in self.mapping.unknown_mapping[feat]:
+                df_clean[feat] = np.where(df_clean[feat]==val, np.NaN, df_clean[feat]) # find and replace all unknown encodings with nan
+
+            cnter+=1 
+            bar.update(cnter)
+
+        bar.finish()
+
+        return df_clean
+
+
+    def fix_edge_cases(df):
+        '''
+        
+        '''
+        
+        #df['CAMEO_DEUG_2015'] = np.where(df['CAMEO_DEUG_2015'].isin(['X', 'XX']), np.NaN, df['CAMEO_DEUG_2015'])
+        #df['CAMEO_DEUG_2015'] = df['CAMEO_DEUG_2015'].astype(float)
+        
+        #df['CAMEO_DEU_2015'] = np.where(df['CAMEO_DEU_2015'].isin(['X', 'XX']), np.NaN, df['CAMEO_DEU_2015'])
+        
+        df = df.replace({'CAMEO_DEUG_2015': ['X', 'XX'], 'CAMEO_DEU_2015': ['X', 'XX']}, np.NaN)
+        
+        return df
+        
+    
+    def correct_data_types(self, df):
+        '''
+        
+        '''
+
+        qualitative_features, numeric_features = self.mapping.get_feature_types(df)
+
+        print('Assigning float to numeric features...')
+        df[numeric_features] = df[numeric_features].astype(float)
+        print('Assigning string to qualitative features...')
+        #df[qualitative_features] = df[qualitative_features].astype(str)
+        df.applymap(lambda x: str(x) if x!=np.nan else float(x))
+
+        return df
+
+
+class AttributeMapping():
+    '''
+    
+    '''
+    
+    UNKNOWN_DETECTION_KEYWORDS = ['unknown', 'unknown / no main age detectable', 'no transaction known']
+    
+    def __init__(self, attribute_map_file):
+        
+        self.attr_mapping_df = AttributeMapping._get_clean_df(attribute_map_file)
+        self.defined_attributes = list(self.attr_mapping_df['Attribute'].unique())
+        
+        self.unknown_mapping = self.get_unkown_mapping(self.attr_mapping_df)
+        self.known_mapping = self.get_known_mapping(self.attr_mapping_df)
+        
+        
+    def _get_clean_df(attribute_map_file):
+        '''
+        
+        '''
+        
+        attr_mapping_df = pd.read_excel(attribute_map_file, header=1)
+        try:
+            del attr_mapping_df['Unnamed: 0']
+        except:
+            pass
+        
+        attr_mapping_clean_df = AttributeMapping._transfrom_attribute_map(attr_mapping_df)
+        
+        return attr_mapping_clean_df
+        
+        
+    def _transfrom_attribute_map(attr_mapping_df):
+        '''Cleans the attr_mapping_df by filling the missing values. 
+
+        ARGS
+        ----
+        attr_mapping_df: (pandas.DataFrame) Dataframe that has a Attribute and Meaning column
+
+        RETURNS
+        -------
+        attr_mapping_clean: (pandas.DataFrame) Copy of attr_mapping_df where the nan values are filled with
+            a forward fill
+        '''
+
+        attr_mapping_clean = attr_mapping_df.copy()
+        attr_mapping_clean.fillna(method='ffill', inplace=True)
+
+        return attr_mapping_clean
+
+        
+    def get_unkown_mapping(self, df):
+        '''Creates a dataframe of the 'Attribute'-'Meaning' couples where the represents unknown
+
+        ARGS
+        ----
+        df: (pandas.DataFrame) Dataframe that has a Attribute and Meaning column
+
+        RETURNS
+        -------
+        unknown_mapping: (dict) Dictionary of the 'Attribute'-'Meaning' couples where the 'Meaning'
+            represents unknown
+        '''
+        
+        unknown_mapping = df[df['Meaning'].isin(self.UNKNOWN_DETECTION_KEYWORDS)].set_index('Attribute')['Value'].apply(lambda x: [str(x).strip() for x in str(x).split(',')]).to_dict()
+        
+        return unknown_mapping
+    
+    
+    def get_known_mapping(self, df):
+        '''Creates a dataframe of the 'Attribute'-'Meaning' couples where the 'Meaning' is defined
+        
+        ARGS
+        ----
+        df: (pandas.DataFrame) Dataframe that has a Attribute and Meaning column
+
+        RETURNS
+        -------
+        known_mapping: (dict) Dictionary of the 'Attribute'-'Meaning' couples where the 'Meaning'
+            is defined
+        '''
+        
+        known_mapping = df[~(df['Meaning'].isin(self.UNKNOWN_DETECTION_KEYWORDS) | df['Meaning'].str.contains('numeric'))].groupby('Attribute')['Value'].apply(list).to_dict()
+        
+        for key, val in known_mapping.items():
+            
+            try:
+                known_mapping[key] = list(map(str, val))
+            except:
+                pass
+        
+        return known_mapping
+    
+    
+    def add_to_unknown_mapping(self, addition):
+        '''
+        
+        '''
+        
+        self.unknown_mapping = mergeDict(self.unknown_mapping, addition)
+
+
+    def get_feature_types(self, df):
+        '''Returns list of numeric features and the categorical features in the data. Numerical features
+        have been extracted from DIAS Attributes - Values 2017.xlsx file manually. All other features are
+        are assumed to be categorical (since all the left features in DIAS Attributes - Values 2017.xlsx 
+        are categorical).
+
+        ARGS
+        ----
+        df: (pandas.DataFrame) Dataframe whose features are clasified as categorical or numerical
+
+        RETURNS
+        -------
+        qualitative_features_used: (list) Qualitative features in the dataframe df
+        numeric_features_used: (list) Quantitative features in the dataframe df
+        '''
+        
+        qualitative_features_used = [x for x in df.columns if x in [*self.known_mapping.keys(), 'LNR']]
+        numeric_features_used = np.setdiff1d(df.columns, qualitative_features_used)
+        #numeric_features = ['ANZ_HAUSHALTE_AKTIV', 'ANZ_HH_TITEL', 'ANZ_PERSONEN', 'ANZ_TITEL', 'GEBURTSJAHR', 'KBA13_ANZAHL_PKW', 'MIN_GEBAEUDEJAHR']
+        
+        # The numeric_features have been manually extracted from the DIAS Attributes - Values 2017.xlsx file
+        #numeric_features_used = [x for x in df.columns if x in(numeric_features)]
+        
+        # all other features are assumed to be categorical
+        #qualitative_features_used = np.setdiff1d(df.columns, numeric_features_used)
+        
+        return qualitative_features_used, numeric_features_used
+
+
+# source https://thispointer.com/how-to-merge-two-or-more-dictionaries-in-python/
+def mergeDict(dict1, dict2):
+    ''' Merge dictionaries and keep values of common keys in list'''
+    
+    dict3 = {**dict1, **dict2}
+    for key, value in dict3.items():
+        if key in dict1 and key in dict2:
+            dict3[key] = [*value , *dict1[key]]
+            
+    return dict3
+
+
+def ratio_missing(df, axis):
+    '''Calculate the ratio of missing values in specified axis. Returns the ratios with a descending order
     
     ARGS
     ----
-    attr_mapping_df: (pandas.DataFrame) Dataframe that has a Attribute and Meaning column
-
+    df: (Pandas DataFrame) DataFrame of interest to perform missing value analysis on
+    axis: (integer) 1 for rows and 0 for columns
+    
     RETURNS
     -------
-    unknown_mapping: (pandas.DataFrame) Dataframe of the 'Attribute'-'Meaning' couples where the 'Meaning'
-        is 'unknown'
+    ratio_missing_rows: (pandas Serie) Series of sorted missing value ratios per
     '''
     
-    attr_mapping_clean = attr_mapping_df.copy()
-    attr_mapping_clean.fillna(method='ffill', inplace=True)
+    n = df.shape[axis]
+    
+    n_missing = df.isnull().sum(axis=axis) #number of missing values per columns
 
-    unknown_mapping = attr_mapping_clean[attr_mapping_clean['Meaning']=='unknown'].set_index('Attribute')['Value']
+    ratio_missing = n_missing/n #number of missing values per column divided by number of rows
 
-    return unknown_mapping
+    ratio_missing = ratio_missing.sort_values(ascending=False)
+    
+    return ratio_missing
 
 
-def get_feature_types(df):
-    '''Returns list of numeric features and the categorical features in the data. Numerical features
-    have been extracted from DIAS Attributes - Values 2017.xlsx file manually. All other features are
-    are assumed to be categorical (since all the left features in DIAS Attributes - Values 2017.xlsx 
-    are categorical).
+def etl_transform(df, attr_mapping, ref_cols, scaler):
+    '''Transform any data set taking into reference the attributes from the already transformed azdias dataset.
+    The dataframe needs to have 'LNR' as one of the columns.
+    Filter the data to have all the attributes listed in attributes_list.
+    LNR will be set as index.
+    Rows having incorrect data as 'X' values in featrue 'CAMEO_DEUG_2015' will be removed.
+    Decodes all the missing value encodings in the data as np.nan.
+    Finally impute missing values with most frequent if categorical or median if quantitative.
+    Returns the cleaned dataframe.
 
     ARGS
     ----
-    df: (pandas.DataFrame) Dataframe whose features are clasified as categorical or numerical
+    df: (pandas.DataFrame) Udacity_AZDIAS dataframe to be cleaned
+    attributes_list: (list) List of features in the reference data set (already transformed azdias dataset)
 
     RETURNS
     -------
-    qualitative_features_used: (list) Qualitative features in the dataframe df
-    numeric_features_used: (list) Quantitative features in the dataframe df
+    df_clean: (pandas.DataFrame) Cleaned copy of df dataframe
     '''
     
-    numeric_features = ['ANZ_HAUSHALTE_AKTIV', 'ANZ_HH_TITEL', 'ANZ_PERSONEN', 'ANZ_TITEL', 'GEBURTSJAHR', 'KBA13_ANZAHL_PKW', 'MIN_GEBAEUDEJAHR']
+    df_clean = df.copy()
     
-    # The numeric_features have been manually extracted from the DIAS Attributes - Values 2017.xlsx file
-    numeric_features_used = [x for x in df.columns if x in(numeric_features)]
+    print('Correcting issues on edge cases...')
+    df_clean = Data_Correction.fix_edge_cases(df_clean)
     
-    # all other features are assumed to be categorical
-    # qualitative_features = list(set(attr_mapping_clean['Attribute'].unique()).difference(set(numeric_features)))
-    # qualitative_features_used = [x for x in df_impute.columns if x in(qualitative_features)]
-    qualitative_features_used = np.setdiff1d(df.columns, numeric_features_used)
+    print('Checking for irregular values...')
+    corrector = Data_Correction(attr_mapping)
+    irregular_values = corrector.scan_irregularities(df_clean)
+    attr_mapping.add_to_unknown_mapping(irregular_values)
     
-    return qualitative_features_used, numeric_features_used
+    print('Decoding missing or unknown values as NaN...')
+    df_clean = corrector.decode_missing_values(df_clean)
+    
+    print('getting the subset of the data with the reference features...')
+    df_clean = df_clean.loc[:, ref_cols]
+    
+    print('Correcting data types...')
+    df_clean = corrector.correct_data_types(df_clean)
+
+    print('Imputing missing values...')
+    df_clean = impute_na(df_clean, attr_mapping)
+
+    print('OneHot Encoding data...')
+    categorized_df = categorize(df_clean, attr_mapping.known_mapping)
+    categorized_df.set_index('LNR', inplace=True)
+    
+    print('Scaling data...')
+    scaled_data = scaler.transform(categorized_df)
+    
+    print('Finishing.')
+    df_scaled = pd.DataFrame(scaled_data, columns = categorized_df.columns.values, index=categorized_df.index)
+
+    return df_scaled
 
 
-def impute_na(df):
+def impute_na(df, mapping_obj):
     '''Impute data inplace of missing values. Uses median for quantitative 
-    data and most frequent for qualitative data.'
+    data and most frequent for qualitative data.'   
     
     ARGS
     ----
@@ -72,7 +351,7 @@ def impute_na(df):
     
     df_impute = df.copy()
     
-    qualitative_features_used, numeric_features_used = get_feature_types(df_impute)
+    qualitative_features_used, numeric_features_used = mapping_obj.get_feature_types(df_impute)
     
     print('Imputing quantitative features...')
     cnter = 0
@@ -99,139 +378,64 @@ def impute_na(df):
     return df_impute
 
 
-def transfrom_attribute_map(attr_mapping_df):
-    '''Cleans the attr_mapping_df by filling the missing values. 
+def categorize(df, attribute_mapping):
+    '''One hot encoder, encodes the dataframe categorical attributes and returns the encoded dataframe.
     
     ARGS
     ----
-    attr_mapping_df: (pandas.DataFrame) Dataframe that has a Attribute and Meaning column
+    df: (pandas.DataFrame) Dataframe which the features will be encoded
+    categorical_mapping: (pandas.DataFrame) Dataframe with the encoding information. 
+        The dataframe should have a 'Attribute' column consisting of feature names and 'Value' 
+        column with individual categories of that attribute. Each category should be a individual row in the dataframe.
 
     RETURNS
     -------
-    attr_mapping_clean: (pandas.DataFrame) Copy of attr_mapping_df where the nan values are filled with
-        a forward fill and 'Meaning' matching 'unknown' rows have been removed
+    categorized_df: (pandas.DataFrame) Copy of df where all the categorical features have been one hot encoded.
     '''
     
-    attr_mapping_clean = attr_mapping_df.copy()
-    attr_mapping_clean.fillna(method='ffill', inplace=True)
-
-    attr_mapping_clean.drop(attr_mapping_clean[attr_mapping_clean['Meaning']=='unknown'].index, axis=0, inplace=True)
-
-    return attr_mapping_clean
-
-
-def get_all_attributes(attr_mapping_df, top_level_attr_df):
-    '''Combines all the unique values in the 'Attribute' column of the input dataframes
+    categorized_df = df.copy()
     
-    ARGS
-    ----
-    attr_mapping_df: (pandas.DataFrame) Dataframe that has a Attribute column
-    top_level_attr_df: (pandas.DataFrame) Dataframe that has a Attribute column
-
-    RETURNS
-    -------
-    all_attributes: (set) Set of unique values combined from the 'Attribute' columns of the input dataframes
-    '''
-
-    all_attributes = set(attr_mapping_df[attr_mapping_df['Attribute'].notnull()]['Attribute'].unique()).union(set(top_level_attr_df['Attribute'].unique()))
-
-    return all_attributes
-
-
-def transform_azdias(azdias_df, attr_mapping_df, top_level_attr_df, missing_cols_thresh=0.2):
-    '''Clean the Udacity_AZDIAS dataset. Sets 'LNR' as index, removes 'EINGEFUEGT_AM' and 
-    the features that have not been explained in attr_mapping_df or  top_level_attr_df.
-    Cleans 'CAMEO_DEUG_2015' attribute where some data are falsely logged as 'X'.
-    Decodes all the missing value encodings in the data as np.nan.
-    Remove the features and rows where the missing values are above a given threshold.
-    Finally impute missing values with most frequent if categorical or median if quantitative.
-    Returns the cleaned dataframe.
-
-    ARGS
-    ----
-    azdias_df: (pandas.DataFrame) Udacity_AZDIAS dataframe to be cleaned
-    attr_mapping_df: (pandas.DataFrame)  Dataframe that has a Attribute and Meaning column
-    top_level_attr_df: (pandas.DataFrame) Dataframe that has a Attribute column
-    missing_cols_thresh: (float) Threshold to remove features with missing value ratio above
-
-    RETURNS
-    -------
-    azdias_df_filtered: (pandas.DataFrame) Cleaned copy of Udacity_AZDIAS dataframe
-    features_kept: (list) List of features in the returned azdias_df_filtered
-    '''
+    feature_list = list(set(categorized_df.columns).intersection(attribute_mapping.keys()))
     
-    azdias_df_filtered = azdias_df.copy()
-    all_attributes = get_all_attributes(attr_mapping_df, top_level_attr_df)
-    unknown_mapping = get_unkown_mapping(attr_mapping_df)
-
-    print('Setting LNR as index...')
-    azdias_df_filtered.set_index('LNR', inplace=True)
-    azdias_df_filtered.drop('EINGEFUEGT_AM', axis=1, inplace=True)
-    azdias_df_filtered.drop('ARBEIT', axis=1, inplace=True)
-
-    print('Removing attriubtes that are not explained...')
-    attributes_not_explained = azdias_df_filtered.columns[~azdias_df_filtered.columns.isin(all_attributes)] # columns not in attribute explanation files
-    azdias_df_filtered.drop(attributes_not_explained, axis=1, inplace=True)
+    cnter = 0
+    bar = progressbar.ProgressBar(maxval=len(feature_list)+1, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+    bar.start()
     
-    print('Correcting issues found in CAMEO_DEUG_2015...')
-    azdias_df_filtered['CAMEO_DEUG_2015'] = np.where(azdias_df_filtered['CAMEO_DEUG_2015']=='X', np.NaN, azdias_df_filtered['CAMEO_DEUG_2015'])
-    azdias_df_filtered['CAMEO_DEUG_2015'] = azdias_df_filtered['CAMEO_DEUG_2015'].astype(float)
+    for feat in feature_list:
+        
+        try:
+            categories = attribute_mapping[feat]
+            categorized_df[feat] = categorized_df[feat].astype(int)
+        except:
+            categories = attribute_mapping[feat]
+        
+        dummies = pd.get_dummies(categorized_df[feat], drop_first=False, prefix=feat, prefix_sep='_d_')
+        
+        not_categorized = np.setdiff1d(categories, categorized_df[feat].unique())
+        if not_categorized is not None:
+            for ncat in not_categorized:
+                dummies[(feat+'_d_'+str(ncat))] = 0
+            
+            # Drop last column to reduce represent categories by n-1
+            dummies = dummies.iloc[:, :-1]
+            
+        try:
+            categorized_df = categorized_df.join(dummies)
+            categorized_df.drop(feat, axis=1, inplace=True)
+        except:
+            print('Error during encoding')
+            print('Error feature: {}'.format(feat))
+            print('Encoded top 10 rows as:')
+            print(dummies.head(10))
+            break
     
-    print('Decoding and converting missing values to NaN...')
-    azdias_df_filtered = decode_missing_values(azdias_df_filtered, unknown_mapping)
-    ratio_missing_cols = ratio_missing(azdias_df_filtered, axis=0)
-    
-    print('Removing missing values according to row and collumn thresholds...')
-    azdias_df_filtered = remove_above_percent(azdias_df_filtered, ratio_missing_cols, missing_cols_thresh, axis=1)
-    
-    print('Imputing missing values...')
-    azdias_df_filtered = impute_na(azdias_df_filtered)
+        # Update the progress bar
+        cnter+=1 
+        bar.update(cnter)
+        
+    bar.finish()
 
-    print('Ratio of data used')
-    print('features: %.2f' % (azdias_df_filtered.shape[1]/azdias_df.shape[1]*100))
-    print('observations: %.2f' % (azdias_df_filtered.shape[0]/azdias_df.shape[0]*100))
-    
-    return azdias_df_filtered
-
-
-def etl_transform(df, attributes_list, attr_mapping_df):
-    '''Transform any data set taking into reference the attributes from the already transformed azdias dataset.
-    The dataframe needs to have 'LNR' as one of the columns.
-    Filter the data to have all the attributes listed in attributes_list.
-    LNR will be set as index.
-    Rows having incorrect data as 'X' values in featrue 'CAMEO_DEUG_2015' will be removed.
-    Decodes all the missing value encodings in the data as np.nan.
-    Finally impute missing values with most frequent if categorical or median if quantitative.
-    Returns the cleaned dataframe.
-
-    ARGS
-    ----
-    df: (pandas.DataFrame) Udacity_AZDIAS dataframe to be cleaned
-    attributes_list: (list) List of features in the reference data set (already transformed azdias dataset)
-
-    RETURNS
-    -------
-    df_clean: (pandas.DataFrame) Cleaned copy of df dataframe
-    '''
-    
-    print('Filtering features according to provided attribute list...')
-    df_clean = df[['LNR', *attributes_list]].copy()
-    unknown_mapping = get_unkown_mapping(attr_mapping_df)
-
-    df_clean.set_index('LNR', inplace=True)
-    df_clean['CAMEO_DEUG_2015'] = np.where(df_clean['CAMEO_DEUG_2015']=='X', np.NaN, df_clean['CAMEO_DEUG_2015'])
-    
-    print('Decoding and converting missing values to NaN...')
-    df_clean = decode_missing_values(df_clean, unknown_mapping)
-    
-    print('Imputing missing values...')
-    df_clean = impute_na(df_clean)
-    
-    print('Ratio of data used')
-    print('features: %.2f' % (df_clean.shape[1]/df.shape[1]*100))
-    print('observations: %.2f' % (df_clean.shape[0]/df.shape[0]*100))
-
-    return df_clean
+    return categorized_df
 
 
 def etl_save_data(obj_list, filenames_list):

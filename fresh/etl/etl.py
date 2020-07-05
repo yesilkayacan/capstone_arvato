@@ -37,7 +37,7 @@ class Data_Correction():
             irregular_found = df[feature][~df[feature].isin(check_dict[feature])].unique()
             
             if len(irregular_found)!=0:
-                issues[feature] = irregular_found
+                issues[feature] = [x for x in irregular_found if str(x) != 'nan']
             
             cnter+=1 
             bar.update(cnter)
@@ -88,11 +88,15 @@ class Data_Correction():
         
         '''
         
-        df['CAMEO_DEUG_2015'] = np.where(df['CAMEO_DEUG_2015'].isin(['X', 'XX']), np.NaN, df['CAMEO_DEUG_2015'])
-        df['CAMEO_DEUG_2015'] = df['CAMEO_DEUG_2015'].astype(float)
+        #df['CAMEO_DEUG_2015'] = np.where(df['CAMEO_DEUG_2015'].isin(['X', 'XX']), np.NaN, df['CAMEO_DEUG_2015'])
+        #df['CAMEO_DEUG_2015'] = df['CAMEO_DEUG_2015'].astype(float)
         
-        df['CAMEO_DEU_2015'] = np.where(df['CAMEO_DEU_2015'].isin(['X', 'XX']), np.NaN, df['CAMEO_DEU_2015'])
-
+        #df['CAMEO_DEU_2015'] = np.where(df['CAMEO_DEU_2015'].isin(['X', 'XX']), np.NaN, df['CAMEO_DEU_2015'])
+        
+        df = df.replace({'CAMEO_DEUG_2015': ['X', 'XX'], 'CAMEO_DEU_2015': ['X', 'XX']}, np.NaN)
+        
+        return df
+        
     
     def correct_data_types(self, df):
         '''
@@ -104,7 +108,8 @@ class Data_Correction():
         print('Assigning float to numeric features...')
         df[numeric_features] = df[numeric_features].astype(float)
         print('Assigning string to qualitative features...')
-        df[qualitative_features] = df[qualitative_features].astype(str)
+        #df[qualitative_features] = df[qualitative_features].astype(str)
+        df.applymap(lambda x: str(x) if x!=np.nan else float(x))
 
         return df
 
@@ -130,7 +135,7 @@ class AttributeMapping():
         
         '''
         
-        attr_mapping_df = pd.read_excel(attribute_map_file, header=1, dtype=str)
+        attr_mapping_df = pd.read_excel(attribute_map_file, header=1)
         try:
             del attr_mapping_df['Unnamed: 0']
         except:
@@ -173,7 +178,7 @@ class AttributeMapping():
             represents unknown
         '''
         
-        unknown_mapping = df[df['Meaning'].isin(self.UNKNOWN_DETECTION_KEYWORDS)].set_index('Attribute')['Value'].apply(lambda x: [str(x).strip() for x in x.split(',')]).to_dict()
+        unknown_mapping = df[df['Meaning'].isin(self.UNKNOWN_DETECTION_KEYWORDS)].set_index('Attribute')['Value'].apply(lambda x: [str(x).strip() for x in str(x).split(',')]).to_dict()
         
         return unknown_mapping
     
@@ -227,9 +232,8 @@ class AttributeMapping():
         numeric_features_used: (list) Quantitative features in the dataframe df
         '''
         
-        qualitative_features_used = [x for x in df.columns if x in self.known_mapping.keys()]
+        qualitative_features_used = [x for x in df.columns if x in [*self.known_mapping.keys(), 'LNR']]
         numeric_features_used = np.setdiff1d(df.columns, qualitative_features_used)
-        
         #numeric_features = ['ANZ_HAUSHALTE_AKTIV', 'ANZ_HH_TITEL', 'ANZ_PERSONEN', 'ANZ_TITEL', 'GEBURTSJAHR', 'KBA13_ANZAHL_PKW', 'MIN_GEBAEUDEJAHR']
         
         # The numeric_features have been manually extracted from the DIAS Attributes - Values 2017.xlsx file
@@ -277,7 +281,7 @@ def ratio_missing(df, axis):
     return ratio_missing
 
 
-def etl_transform(df, attr_mapping, ref_cols):
+def etl_transform(df, attr_mapping, ref_cols, scaler):
     '''Transform any data set taking into reference the attributes from the already transformed azdias dataset.
     The dataframe needs to have 'LNR' as one of the columns.
     Filter the data to have all the attributes listed in attributes_list.
@@ -300,7 +304,7 @@ def etl_transform(df, attr_mapping, ref_cols):
     df_clean = df.copy()
     
     print('Correcting issues on edge cases...')
-    Data_Correction.fix_edge_cases(df_clean)
+    df_clean = Data_Correction.fix_edge_cases(df_clean)
     
     print('Checking for irregular values...')
     corrector = Data_Correction(attr_mapping)
@@ -311,29 +315,25 @@ def etl_transform(df, attr_mapping, ref_cols):
     df_clean = corrector.decode_missing_values(df_clean)
     
     print('getting the subset of the data with the reference features...')
-    df_clean = df_clean[ref_cols]
+    df_clean = df_clean.loc[:, ref_cols]
     
     print('Correcting data types...')
     df_clean = corrector.correct_data_types(df_clean)
 
     print('Imputing missing values...')
-    df_clean = impute_na(df_clean)
-
-    print('Ratio of data used')
-    print('features: %.2f' % (df_clean.shape[1]/df.shape[1]*100))
+    df_clean = impute_na(df_clean, attr_mapping)
 
     print('OneHot Encoding data...')
     categorized_df = categorize(df_clean, attr_mapping.known_mapping)
     categorized_df.set_index('LNR', inplace=True)
-
+    
     print('Scaling data...')
-    scaler = StandardScaler()
-    scaled_data = scaler.fit_transform(categorized_df)
-
+    scaled_data = scaler.transform(categorized_df)
+    
     print('Finishing.')
     df_scaled = pd.DataFrame(scaled_data, columns = categorized_df.columns.values, index=categorized_df.index)
 
-    return df_clean
+    return df_scaled
 
 
 def impute_na(df, mapping_obj):
@@ -415,6 +415,9 @@ def categorize(df, attribute_mapping):
         if not_categorized is not None:
             for ncat in not_categorized:
                 dummies[(feat+'_d_'+str(ncat))] = 0
+            
+            # Drop last column to reduce represent categories by n-1
+            dummies = dummies.iloc[:, :-1]
             
         try:
             categorized_df = categorized_df.join(dummies)

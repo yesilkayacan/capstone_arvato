@@ -103,13 +103,14 @@ class Data_Correction():
         
         '''
 
-        qualitative_features, numeric_features = self.mapping.get_feature_types(df)
-
+        qualitative_features = self.mapping.get_feature_types(df)
+        other_features = list(set(df.columns).difference(qualitative_features))
+        
         print('Assigning float to numeric features...')
-        df[numeric_features] = df[numeric_features].astype(float)
+        df[other_features] = df[other_features].astype(float)
         print('Assigning string to qualitative features...')
         #df[qualitative_features] = df[qualitative_features].astype(str)
-        df.applymap(lambda x: str(x) if x!=np.nan else float(x))
+        df[qualitative_features].applymap(lambda x: str(x) if x!=np.nan else float(x))
 
         return df
 
@@ -121,7 +122,7 @@ class AttributeMapping():
     
     UNKNOWN_DETECTION_KEYWORDS = ['unknown', 'unknown / no main age detectable', 'no transaction known']
     
-    def __init__(self, attribute_map_file):
+    def __init__(self, attribute_map_file, feature_type_file='feature_types.csv'):
         
         self.attr_mapping_df = AttributeMapping._get_clean_df(attribute_map_file)
         self.defined_attributes = list(self.attr_mapping_df['Attribute'].unique())
@@ -129,6 +130,7 @@ class AttributeMapping():
         self.unknown_mapping = self.get_unkown_mapping(self.attr_mapping_df)
         self.known_mapping = self.get_known_mapping(self.attr_mapping_df)
         
+        self.feature_type_file = pd.read_csv('feature_types.csv')
         
     def _get_clean_df(attribute_map_file):
         '''
@@ -232,8 +234,10 @@ class AttributeMapping():
         numeric_features_used: (list) Quantitative features in the dataframe df
         '''
         
-        qualitative_features_used = [x for x in df.columns if x in [*self.known_mapping.keys(), 'LNR']]
-        numeric_features_used = np.setdiff1d(df.columns, qualitative_features_used)
+        nominal_features = self.feature_type_file[self.feature_type_file['Type']=='nominal']['Feature'].values
+        
+        qualitative_features_used = [x for x in df.columns if x in [*nominal_features, 'LNR']]
+        #numeric_features_used = np.setdiff1d(df.columns, qualitative_features_used)
         #numeric_features = ['ANZ_HAUSHALTE_AKTIV', 'ANZ_HH_TITEL', 'ANZ_PERSONEN', 'ANZ_TITEL', 'GEBURTSJAHR', 'KBA13_ANZAHL_PKW', 'MIN_GEBAEUDEJAHR']
         
         # The numeric_features have been manually extracted from the DIAS Attributes - Values 2017.xlsx file
@@ -242,7 +246,7 @@ class AttributeMapping():
         # all other features are assumed to be categorical
         #qualitative_features_used = np.setdiff1d(df.columns, numeric_features_used)
         
-        return qualitative_features_used, numeric_features_used
+        return qualitative_features_used
 
 
 # source https://thispointer.com/how-to-merge-two-or-more-dictionaries-in-python/
@@ -281,7 +285,7 @@ def ratio_missing(df, axis):
     return ratio_missing
 
 
-def etl_transform(df, attr_mapping, ref_cols, scaler):
+def etl_transform(df, attr_mapping, ref_cols, scaler, apply_scaler=True):
     '''Transform any data set taking into reference the attributes from the already transformed azdias dataset.
     The dataframe needs to have 'LNR' as one of the columns.
     Filter the data to have all the attributes listed in attributes_list.
@@ -324,16 +328,21 @@ def etl_transform(df, attr_mapping, ref_cols, scaler):
     df_clean = impute_na(df_clean, attr_mapping)
 
     print('OneHot Encoding data...')
-    categorized_df = categorize(df_clean, attr_mapping.known_mapping)
+    categorized_df = categorize(df_clean, attr_mapping)
     categorized_df.set_index('LNR', inplace=True)
     
-    print('Scaling data...')
-    scaled_data = scaler.transform(categorized_df)
+    if apply_scaler:
+        print('Scaling data...')
+        scaled_data = scaler.transform(categorized_df)
+        
+        df_transformed = pd.DataFrame(scaled_data, columns = categorized_df.columns.values, index=categorized_df.index)
+        
+    else:
+        df_transformed = categorized_df
     
     print('Finishing.')
-    df_scaled = pd.DataFrame(scaled_data, columns = categorized_df.columns.values, index=categorized_df.index)
 
-    return df_scaled
+    return df_transformed
 
 
 def impute_na(df, mapping_obj):
@@ -351,14 +360,15 @@ def impute_na(df, mapping_obj):
     
     df_impute = df.copy()
     
-    qualitative_features_used, numeric_features_used = mapping_obj.get_feature_types(df_impute)
+    qualitative_features_used = mapping_obj.get_feature_types(df_impute)
+    other_features = list(set(df.columns).difference(qualitative_features_used))
     
     print('Imputing quantitative features...')
     cnter = 0
-    bar = progressbar.ProgressBar(maxval=len(numeric_features_used)+1, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+    bar = progressbar.ProgressBar(maxval=len(other_features)+1, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
     bar.start()
     # impute median for missing values in quantitative features
-    for feat in numeric_features_used:
+    for feat in other_features:
         df_impute[feat] = df_impute[feat].fillna(df_impute[feat].median())
         cnter+=1 
         bar.update(cnter)
@@ -378,7 +388,7 @@ def impute_na(df, mapping_obj):
     return df_impute
 
 
-def categorize(df, attribute_mapping):
+def categorize(df, mapping_obj):
     '''One hot encoder, encodes the dataframe categorical attributes and returns the encoded dataframe.
     
     ARGS
@@ -395,7 +405,9 @@ def categorize(df, attribute_mapping):
     
     categorized_df = df.copy()
     
-    feature_list = list(set(categorized_df.columns).intersection(attribute_mapping.keys()))
+    
+    qualitative_features_used = mapping_obj.get_feature_types(categorized_df)
+    feature_list = [x for x in qualitative_features_used if x!='LNR']
     
     cnter = 0
     bar = progressbar.ProgressBar(maxval=len(feature_list)+1, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
@@ -404,10 +416,10 @@ def categorize(df, attribute_mapping):
     for feat in feature_list:
         
         try:
-            categories = attribute_mapping[feat]
+            categories = mapping_obj.known_mapping[feat]
             categorized_df[feat] = categorized_df[feat].astype(int)
         except:
-            categories = attribute_mapping[feat]
+            categories = mapping_obj.known_mapping[feat]
         
         dummies = pd.get_dummies(categorized_df[feat], drop_first=False, prefix=feat, prefix_sep='_d_')
         

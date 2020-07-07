@@ -6,15 +6,30 @@ import pickle
 
 
 class Data_Correction():
-    
+    '''Class to do modifications on the dataframe containing the data
+    '''
+
     def __init__(self, mapping_obj):
-        
+        '''
+        ARGS
+        ----
+        mapping_obj: (AttributeMapping object)
+        '''
+
         self.mapping = mapping_obj
         
     
     def scan_irregularities(self, df):
-        '''
+        '''Scan the data for data encodings that are not listed in the encoding mapping.
 
+        ARGS
+        ----
+        def: (pandas.DataFrame) Dataframe to be scanned
+
+        RETURNS
+        -------
+        issues: (dictionary) Dictionary of irregular values found. Keys are feature names, 
+            values are lists of irregular values found in that feature
         '''
         
         known_mapping = copy.deepcopy(self.mapping.known_mapping)
@@ -84,8 +99,17 @@ class Data_Correction():
 
 
     def fix_edge_cases(df):
-        '''
-        
+        '''Fix edge cases in the data which are in CAMEO_DEUG_2015 and CAMEO_DEU_2015 as X and XX. These
+        values are replaced with np.NaN
+
+        ARGS
+        ----
+        df: (pandas.DataFrame) Dataframe where the features CAMEO_DEUG_2015 and CAMEO_DEU_2015 values X and XX
+            will be replaced with np.NaN
+
+        RETURNS
+        -------
+        df_clean: (pandas.DataFrame) Dataframe where the edge cases are cleaned
         '''
         
         #df['CAMEO_DEUG_2015'] = np.where(df['CAMEO_DEUG_2015'].isin(['X', 'XX']), np.NaN, df['CAMEO_DEUG_2015'])
@@ -93,14 +117,22 @@ class Data_Correction():
         
         #df['CAMEO_DEU_2015'] = np.where(df['CAMEO_DEU_2015'].isin(['X', 'XX']), np.NaN, df['CAMEO_DEU_2015'])
         
-        df = df.replace({'CAMEO_DEUG_2015': ['X', 'XX'], 'CAMEO_DEU_2015': ['X', 'XX']}, np.NaN)
+        df_clean = df.replace({'CAMEO_DEUG_2015': ['X', 'XX'], 'CAMEO_DEU_2015': ['X', 'XX']}, np.NaN)
         
-        return df
+        return df_clean
         
     
     def correct_data_types(self, df):
-        '''
+        '''Qualitative nominal data and LNR are formatted as string and all other features are formatted as float
         
+        ARGS
+        ----
+        df: (pandas.DataFrame) Dataframe which features data format will be set
+
+        RETURNS
+        -------
+        df: (pandas.DataFrame) Final dataframe with the features assigned with data types
+
         '''
 
         qualitative_features = self.mapping.get_feature_types(df)

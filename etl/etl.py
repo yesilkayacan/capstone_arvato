@@ -148,14 +148,19 @@ class Data_Correction():
 
 
 class AttributeMapping():
-    '''
-    
+    '''Class containing information on feature encoding and processing the encoding mapping
     '''
     
     UNKNOWN_DETECTION_KEYWORDS = ['unknown', 'unknown / no main age detectable', 'no transaction known']
     
     def __init__(self, attribute_map_file, feature_type_file='feature_types.csv'):
-        
+        '''
+        ARGS
+        ----
+        attribute_map_file: (String) Path of the csv file containing the mapping data should have a 
+            Attribute and Meaning as columns
+        feature_type_file: (String) Path of the csv file containing the feature type information 
+        '''
         self.attr_mapping_df = AttributeMapping._get_clean_df(attribute_map_file)
         self.defined_attributes = list(self.attr_mapping_df['Attribute'].unique())
         
@@ -165,8 +170,17 @@ class AttributeMapping():
         self.feature_type_file = pd.read_csv('feature_types.csv')
         
     def _get_clean_df(attribute_map_file):
-        '''
+        '''Read the csv file located in the input and remove the Unnamed column. Also calls the _transfrom_attribute_map
+        to clean the file for NaN values
+
+        ARGS
+        ----
+        attribute_map_file: (String) Path of the csv file containing the mapping data should have a 
+            Attribute and Meaning as columns
         
+        RETURNS
+        -------
+        attr_mapping_clean_df: (pandas.DataFrame) Cleaned version of the input csv file
         '''
         
         attr_mapping_df = pd.read_excel(attribute_map_file, header=1)
@@ -200,7 +214,7 @@ class AttributeMapping():
 
         
     def get_unkown_mapping(self, df):
-        '''Creates a dataframe of the 'Attribute'-'Meaning' couples where the represents unknown
+        '''Creates a dataframe of the 'Attribute'-'Meaning' couples where the data represents unknown
 
         ARGS
         ----
@@ -243,27 +257,26 @@ class AttributeMapping():
     
     
     def add_to_unknown_mapping(self, addition):
-        '''
-        
+        '''Add a dictionary containing key-values as feature-list of additional values to the unknown_mapping
+
+        ARGS
+        ----
+        addition: (dictionary) Dictionary to be added on top of unknown_mapping
         '''
         
         self.unknown_mapping = mergeDict(self.unknown_mapping, addition)
 
 
     def get_feature_types(self, df):
-        '''Returns list of numeric features and the categorical features in the data. Numerical features
-        have been extracted from DIAS Attributes - Values 2017.xlsx file manually. All other features are
-        are assumed to be categorical (since all the left features in DIAS Attributes - Values 2017.xlsx 
-        are categorical).
+        '''Returns list of categorical nominal features in the data including LNR
 
         ARGS
         ----
-        df: (pandas.DataFrame) Dataframe whose features are clasified as categorical or numerical
+        df: (pandas.DataFrame) Dataframe whose nominal features will be reported
 
         RETURNS
         -------
-        qualitative_features_used: (list) Qualitative features in the dataframe df
-        numeric_features_used: (list) Quantitative features in the dataframe df
+        qualitative_features_used: (list) List of nominal features in the data including LNR
         '''
         
         nominal_features = self.feature_type_file[self.feature_type_file['Type']=='nominal']['Feature'].values
@@ -281,9 +294,20 @@ class AttributeMapping():
         return qualitative_features_used
 
 
-# source https://thispointer.com/how-to-merge-two-or-more-dictionaries-in-python/
+
 def mergeDict(dict1, dict2):
-    ''' Merge dictionaries and keep values of common keys in list'''
+    ''' Merge dictionaries and keep values of common keys in list
+    source: https://thispointer.com/how-to-merge-two-or-more-dictionaries-in-python/
+
+    ARGS
+    ----
+    dict1: (dictionary) 1st dictionary to be merged
+    dict2: (dictionary) 2nd dictionary to be merged with the 1st
+
+    RETURNS
+    -------
+    dict3: (dictionary) Resulting dictionary when dict1 and dict2 are merged
+    '''
     
     dict3 = {**dict1, **dict2}
     for key, value in dict3.items():
@@ -318,23 +342,20 @@ def ratio_missing(df, axis):
 
 
 def etl_transform(df, attr_mapping, ref_cols, scaler, apply_scaler=True):
-    '''Transform any data set taking into reference the attributes from the already transformed azdias dataset.
-    The dataframe needs to have 'LNR' as one of the columns.
-    Filter the data to have all the attributes listed in attributes_list.
-    LNR will be set as index.
-    Rows having incorrect data as 'X' values in featrue 'CAMEO_DEUG_2015' will be removed.
-    Decodes all the missing value encodings in the data as np.nan.
-    Finally impute missing values with most frequent if categorical or median if quantitative.
-    Returns the cleaned dataframe.
+    '''Transform any data set using the reference features.
 
     ARGS
     ----
     df: (pandas.DataFrame) Udacity_AZDIAS dataframe to be cleaned
-    attributes_list: (list) List of features in the reference data set (already transformed azdias dataset)
+    mapping_obj: (AttributeMapping object)
+    ref_cols: (list) List of features that will be used during the transformation
+    scaler: (sklearn.preprocessing.StandardScaler) Trained StandardScaler object
+    apply_scaler: (bool) Boolean indicating if the scaler will be applied to the data or not.
+        If false the scaler object can be set as None
 
     RETURNS
     -------
-    df_clean: (pandas.DataFrame) Cleaned copy of df dataframe
+    df_transformed: (pandas.DataFrame) Cleaned copy of df dataframe
     '''
     
     df_clean = df.copy()
@@ -379,7 +400,7 @@ def etl_transform(df, attr_mapping, ref_cols, scaler, apply_scaler=True):
 
 def impute_na(df, mapping_obj):
     '''Impute data inplace of missing values. Uses median for quantitative 
-    data and most frequent for qualitative data.'   
+    data and most frequent for nominal data.'   
     
     ARGS
     ----
@@ -421,18 +442,16 @@ def impute_na(df, mapping_obj):
 
 
 def categorize(df, mapping_obj):
-    '''One hot encoder, encodes the dataframe categorical attributes and returns the encoded dataframe.
+    '''One hot encoder, encodes the dataframe nominal features and returns the encoded dataframe.
     
     ARGS
     ----
     df: (pandas.DataFrame) Dataframe which the features will be encoded
-    categorical_mapping: (pandas.DataFrame) Dataframe with the encoding information. 
-        The dataframe should have a 'Attribute' column consisting of feature names and 'Value' 
-        column with individual categories of that attribute. Each category should be a individual row in the dataframe.
+    mapping_obj: (AttributeMapping object)
 
     RETURNS
     -------
-    categorized_df: (pandas.DataFrame) Copy of df where all the categorical features have been one hot encoded.
+    categorized_df: (pandas.DataFrame) Copy of df where all the nominal features have been one hot encoded.
     '''
     
     categorized_df = df.copy()

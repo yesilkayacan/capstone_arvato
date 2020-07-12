@@ -356,6 +356,7 @@ def etl_transform(df, attr_mapping, ref_cols, scaler, apply_scaler=True):
     RETURNS
     -------
     df_transformed: (pandas.DataFrame) Cleaned copy of df dataframe
+    categorized_df: (pandas.DataFrame) Copy of df where all the nominal features have been one hot encoded.
     '''
     
     df_clean = df.copy()
@@ -395,7 +396,7 @@ def etl_transform(df, attr_mapping, ref_cols, scaler, apply_scaler=True):
     
     print('Finishing.')
 
-    return df_transformed
+    return df_transformed, categorized_df
 
 
 def impute_na(df, mapping_obj):

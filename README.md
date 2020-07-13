@@ -38,4 +38,4 @@ The mailout train data was very sparse on the perspective of positive returns in
 Also other algorithms to train the model can be tested. Here I only used GradientBoostingClassifier from sklearn.
 
 The report is also shared on a Medium article at:
-https://medium.com/p/eebe1295222a/edit
+https://medium.com/@yesilkayacan/customer-clustering-analysis-and-prediction-study-eebe1295222a?sk=ecd6f4ba2ae4ae0c4447d4642dee8758

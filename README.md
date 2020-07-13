@@ -36,3 +36,6 @@ For the code to function as is the data files should be in the same directory as
 The mailout train data was very sparse on the perspective of positive returns in the target. While training only equal numbers of possitive and negative target variables are selected to remove bias. This led to a great loss in data. This can be mnitigated by assuming the previous customers dataset as positive returns of a fictional mailout campaign. The model can be retrained with this higher amount of data.
 
 Also other algorithms to train the model can be tested. Here I only used GradientBoostingClassifier from sklearn.
+
+The report is also shared on a Medium article at:
+https://medium.com/p/eebe1295222a/edit

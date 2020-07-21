@@ -32,10 +32,26 @@ A custom module is also created called ETL. This module folder needs to be in th
 
 For the code to function as is the data files should be in the same directory as the Jupyter Notebook.
 
-## Future Work
-The mailout train data was very sparse on the perspective of positive returns in the target. While training only equal numbers of possitive and negative target variables are selected to remove bias. This led to a great loss in data. This can be mnitigated by assuming the previous customers dataset as positive returns of a fictional mailout campaign. The model can be retrained with this higher amount of data.
+## File Descriptions
 
-Also other algorithms to train the model can be tested. Here I only used GradientBoostingClassifier from sklearn.
+- Arvato_Project_Workbook_supervised.ipynb: Supervised learning study on Mailout data target prediction
+- Arvato_Project_Workbook_unsupervised.ipynb: Data cleaning, unsupervised learning and demographoc comparison study
+- etl: ETL module used in cleaning the data
+- pictures: Plots used in the medium article
+
+## Summary and Future Work
+
+#### Summary
+The data provided for population and customers are cleaned thoroughly. During the cleaning process the features in the data are filtered out according to their amount of information (missing data) and our knowledge on the features. The data is then scaled and PCA is applied to reduce the amount of features in the data. Clustering model is trained using the population data and used to predict the customers data. These both cluster outputs are then used to do a demographic comparison between the two data. The clusters representing the population and customers are compared in a way that the most divergent features between the two are investigated.
+
+Further on a supervised learning model is created using the Mailout train data. Several models are compared to one another and KNN is chosen to be the most suitable. Gridseach is used to optimize the hyperparameters of the KNN model in order to improve the predictions. While evaluating the model ROC AUC score is which is selected because it is reliant on the final label outputs of the model. However it was found that the improvements made by grid search in this case did not improve the model any further. The model is then used to predict another dataset called Mailout test and the results are submitted to a Kaggle competition. The resulting score from Kaggle was 0.49118.
+
+#### Future Work
+In future work, during the supervised learning the evaluation scores of the tuned model did not give results as expected. This raises the question on how other model application would have performed after propper tuning. During the model selection only bascis were used however to compare the model, all the hyperparameters can be tuned that the full potential of the other models are seen.
+
+Also in order to eliminate the bias in the training data, the data was shaved in a way that the dominant label was reduced to the size of the other. However this removal of bias in the training data does come with a significant cost of loosing data with label 0. In order to eliminate this problem, including the customers data in the training data can be used to increase the size of the training data significantly.
+My work can be found in the github repo below,
+
 
 The report is also shared on a Medium article at:
-https://medium.com/@yesilkayacan/customer-clustering-analysis-and-prediction-study-eebe1295222a?sk=ecd6f4ba2ae4ae0c4447d4642dee8758
+https://medium.com/@yesilkayacan/customer-clustering-analysis-and-prediction-study-eebe1295222a
